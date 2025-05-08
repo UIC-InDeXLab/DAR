@@ -11,6 +11,7 @@ class ThetaGraph(Graph):
         self.directions = []
         self.compute_directions()
         self.build_graph()
+        # TODO: add distance r (both r and radius)
 
     def compute_directions(self, seed=40):
         """
