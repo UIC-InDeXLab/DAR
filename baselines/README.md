@@ -9,3 +9,5 @@ This directory contains the baseline implementations (whatever already exists) a
     - First find MBR covers then apply RTree
         - We should implement this ourselves, I haven't found any references for this yet.
 - Brute force
+
+## TODO
