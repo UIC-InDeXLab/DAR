@@ -1,5 +1,6 @@
 from ranges.base import Range
 import numpy as np
+import itertools
 
 
 """
@@ -33,6 +34,43 @@ class StripeRange(Range):
         dot = np.dot(point, self.normal_vector)
         # dot_product = sum(p * n for p, n in zip(point, self.normal_vector))
         return dot >= self.start_dot and dot <= self.end_dot
+
+    def hyper_rectangle_intersect(self, hyper_rectangle):
+        """
+        Check if the stripe intersects with a hyper_rectangle.
+
+        Args:
+            hyper_rectangle (tuple): A tuple of two points representing the corners of the hyper_rectangle.
+
+        Returns:
+            Either: partial overlap (1), no overlap (0), or full overlap (2).
+        """
+        min_corner, max_corner = hyper_rectangle
+        dims = len(min_corner)
+
+        # Generate all corners of the hyperrectangle (2^d corners)
+        corners = []
+        for bits in itertools.product([0, 1], repeat=dims):
+            corner = np.where(bits, max_corner, min_corner)
+            corners.append(corner)
+
+        corners = np.array(corners)  # shape: (2^d, d)
+
+        # Compute dot products
+        dot_products = corners @ self.normal_vector
+
+        min_dot = np.min(dot_products)
+        max_dot = np.max(dot_products)
+
+        if self.start_dot <= min_dot and self.end_dot >= max_dot:
+            # Full overlap
+            return 2
+        elif self.end_dot < min_dot or self.start_dot > max_dot:
+            # No overlap
+            return 0
+        else:
+            # Partial overlap
+            return 1
 
     @staticmethod
     def sample_stripe(points: np.ndarray, r=0.5, tolerance=0.01):
