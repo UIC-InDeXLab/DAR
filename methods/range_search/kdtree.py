@@ -1,6 +1,6 @@
 import numpy as np
 from ranges.stripe_range import StripeRange
-from baselines.baselines import linear_search
+from methods.utils import linear_search
 
 
 class KDNode:

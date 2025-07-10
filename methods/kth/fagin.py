@@ -1,57 +1,70 @@
 import numpy as np
-import heapq
 from collections import defaultdict
 
 
-def fagins_algorithm_points(points, k, scoring_fn):
+def fagins_algorithm(points: np.ndarray, weights: np.ndarray, k: int):
     """
-    points: List of n points, each is a list or np.ndarray of d real values.
-    k: Number of top items to retrieve.
-    scoring_fn: Monotonic scoring function that takes a d-dimensional list and returns a score.
+    Fagin's Algorithm to find top-k points based on dot product scoring.
 
-    Returns: List of (index, aggregate_score) for top-k points (using their original indices).
+    Args:
+        points (np.ndarray): An (n, d) array of n points in d-dimensional space.
+        weights (np.ndarray): A (d,) array representing the scoring weight vector.
+        k (int): The number of top results to return.
+
+    Returns:
+        List of tuples: Each tuple is (index, score, point).
     """
     n, d = points.shape
+    assert weights.shape[0] == d, "Weight vector dimension mismatch."
 
     # Step 1: Create sorted lists for each dimension
-    lists = []
+    sorted_lists = []
     for dim in range(d):
-        sorted_indices = np.argsort(-points[:, dim])  # descending order
-        sorted_list = [(idx, points[idx, dim]) for idx in sorted_indices]
-        lists.append(sorted_list)
-
-    seen = defaultdict(set)  # index -> set of list indices where seen
-    scores = defaultdict(lambda: [None] * d)  # index -> list of scores
-    objects_seen_in_all = set()
-
-    max_length = n
+        sorted_indices = np.argsort(points[:, dim] * weights[dim])[
+            ::-1
+        ]  # descending order
+        sorted_lists.append(sorted_indices)
 
     # Step 2: Sorted Access Phase
-    for i in range(max_length):
-        for list_idx, lst in enumerate(lists):
-            if i < len(lst):
-                obj_idx, score = lst[i]
-                seen[obj_idx].add(list_idx)
-                scores[obj_idx][list_idx] = score
+    seen = defaultdict(set)  # key: point index, value: set of dimensions seen
+    fully_seen = set()
+    ptrs = [0] * d
+    while len(fully_seen) < k:
+        for dim in range(d):
+            if ptrs[dim] >= n:
+                continue
+            idx = sorted_lists[dim][ptrs[dim]]
+            seen[idx].add(dim)
+            if len(seen[idx]) == d:
+                fully_seen.add(idx)
+            ptrs[dim] += 1
+        if all(ptr >= n for ptr in ptrs):
+            break  # All lists exhausted
 
-                if len(seen[obj_idx]) == d:
-                    objects_seen_in_all.add(obj_idx)
+    # Step 3: Random Access Phase - compute scores
+    candidates = set(seen.keys())
+    scores = {}
+    for idx in candidates:
+        score = np.dot(points[idx], weights)
+        scores[idx] = score
 
-        if len(objects_seen_in_all) >= k:
-            break
+    # Step 4: Select Top-k
+    topk = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
+    # result = [(idx, score, points[idx]) for idx, score in topk]
+    return points[topk[-1][0]], topk[-1][1] 
 
-    # Step 3: Random Access Phase
-    for obj_idx in scores:
-        for list_idx in range(d):
-            if scores[obj_idx][list_idx] is None:
-                scores[obj_idx][list_idx] = points[obj_idx, list_idx]
 
-    # Step 4: Aggregate using scoring function
-    aggregate_scores = []
-    for obj_idx, score_vector in scores.items():
-        total_score = scoring_fn(score_vector)
-        aggregate_scores.append((total_score, obj_idx))
+# Example Usage:
+if __name__ == "__main__":
+    np.random.seed(42)
+    n_points = 100
+    dim = 4
+    k = 5
 
-    top_k = heapq.nlargest(k, aggregate_scores)
+    points = np.random.rand(n_points, dim)
+    weights = np.random.rand(dim)
 
-    return [(idx, score) for score, idx in top_k]
+    top_k_results = fagins_algorithm(points, weights, k)
+
+    for idx, score, point in top_k_results:
+        print(f"Index: {idx}, Score: {score:.4f}, Point: {point}")

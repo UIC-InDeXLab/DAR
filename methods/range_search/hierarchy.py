@@ -144,7 +144,7 @@ class HierarchicalIndex:
             # print(candidate_points)
 
         # Final filtering at the bottom layer
-        print("candidates: ", len(candidate_points), "all: ", len(self.points))
+        # print("candidates: ", len(candidate_points), "all: ", len(self.points))
         result = []
         for point in candidate_points:
             if q.is_in(self.points[point]):

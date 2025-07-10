@@ -20,10 +20,10 @@ def epsilon_sample(points: np.ndarray, size: int):
     return indices, points[indices]
 
 
-def find_kth_exhaustive(points: np.ndarray, scoring_fn, k: int):
+def find_kth_exhaustive(points: np.ndarray, weights, k: int):
     """
-    Find the k-th point in the points based on the scoring function.
+    Find the k-th point in the points based on the dot product scoring with weights.
     """
-    scores = np.array([scoring_fn(point) for point in points])
-    sorted_indices = np.argsort(scores)
+    scores = np.dot(points, weights)
+    sorted_indices = np.argsort(-scores)
     return points[sorted_indices[k - 1]], scores[sorted_indices[k - 1]]

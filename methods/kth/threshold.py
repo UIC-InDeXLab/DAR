@@ -1,75 +1,81 @@
 import numpy as np
-import heapq
 from collections import defaultdict
+import heapq
 
 
-def threshold_algorithm(points, k, scoring_fn):
+def threshold_algorithm(points: np.ndarray, weights: np.ndarray, k: int):
     """
-    points: np.ndarray of shape (n, d)
-    k: int, number of top results
-    scoring_fn: monotonic scoring function on complete d-dimensional vectors
+    Threshold Algorithm (TA) to find top-k points based on dot product scoring.
 
-    Returns: List of (point_index, aggregate_score) for top-k points
+    Args:
+        points (np.ndarray): An (n, d) array of points.
+        weights (np.ndarray): A (d,) weight vector.
+        k (int): Number of top results to return.
+
+    Returns:
+        List of tuples: (index, score, point)
     """
     n, d = points.shape
+    assert weights.shape[0] == d, "Dimension mismatch."
 
-    # Step 1: Precompute sorted lists (descending) and build lookup tables
+    # Step 1: Create sorted lists for each dimension
     sorted_lists = []
-    lookup_tables = []
     for dim in range(d):
-        sorted_idx = np.argsort(-points[:, dim])  # descending sort
-        sorted_list = [(idx, points[idx, dim]) for idx in sorted_idx]
-        lookup = {idx: points[idx, dim] for idx in sorted_idx}
-        sorted_lists.append(sorted_list)
-        lookup_tables.append(lookup)
+        scores = points[:, dim] * weights[dim]
+        sorted_indices = np.argsort(-scores)  # descending
+        sorted_lists.append(sorted_indices)
 
-    # Initialize data structures
-    seen_scores = defaultdict(lambda: [None] * d)
-    complete_objects = set()
-    accessed = set()
-    top_k_heap = []  # min-heap of (score, point_idx)
-    max_iters = max(len(lst) for lst in sorted_lists)
+    # Data structures
+    seen = {}
+    heap = []  # Min-heap to maintain top-k: (score, index)
+    threshold = 0
+    ptr = 0  # global position in lists
 
-    for i in range(max_iters):
-        # Step 2: Sorted access round
-        current_frontier = []
-        for dim_idx, lst in enumerate(sorted_lists):
-            if i < len(lst):
-                obj_idx, value = lst[i]
-                seen_scores[obj_idx][dim_idx] = value
-                current_frontier.append(value)
-                accessed.add(obj_idx)
+    while True:
+        # Step 2: Sorted Access: look at the next unseen item in each list
+        for dim in range(d):
+            if ptr >= n:
+                continue
+            idx = sorted_lists[dim][ptr]
+            if idx not in seen:
+                # Random Access: compute full score
+                score = np.dot(points[idx], weights)
+                seen[idx] = score
+                if len(heap) < k:
+                    heapq.heappush(heap, (score, idx))
+                else:
+                    if score > heap[0][0]:
+                        heapq.heappushpop(heap, (score, idx))
 
-        # Step 3: Random access for missing dimensions
-        for obj_idx in accessed:
-            vector = seen_scores[obj_idx]
-            for dim_idx in range(d):
-                if vector[dim_idx] is None:
-                    vector[dim_idx] = lookup_tables[dim_idx][obj_idx]
+        # Step 3: Threshold calculation
+        threshold = sum(
+            points[sorted_lists[dim][ptr], dim] * weights[dim] for dim in range(d)
+        )
 
-            # Score the fully observed vector
-            score = scoring_fn(vector)
-            seen_scores[obj_idx] = vector  # make sure it's saved
-            if obj_idx not in complete_objects:
-                complete_objects.add(obj_idx)
-                heapq.heappush(top_k_heap, (score, obj_idx))
-                if len(top_k_heap) > k:
-                    heapq.heappop(top_k_heap)
-
-        # Step 4: Compute threshold
-        threshold_vector = []
-        for dim_idx, lst in enumerate(sorted_lists):
-            if i < len(lst):
-                threshold_vector.append(lst[i][1])
-            else:
-                threshold_vector.append(0.0)  # conservative default
-
-        threshold_score = scoring_fn(threshold_vector)
-
-        # Step 5: Check stopping condition
-        if len(top_k_heap) == k and top_k_heap[0][0] >= threshold_score:
+        # Step 4: Check stopping condition
+        if len(heap) == k and heap[0][0] >= threshold:
             break
 
-    # Step 6: Extract and sort final top-k
-    result = sorted(top_k_heap, key=lambda x: -x[0])
-    return [(idx, score) for score, idx in result]
+        ptr += 1
+        if ptr >= n:
+            break
+
+    # Step 5: Prepare results
+    topk = sorted(heap, key=lambda x: -x[0])  # descending order
+    # return points[topk[-1][0]], topk[-1][1]
+    return points[topk[-1][1]], topk[-1][0]
+
+
+# Example Usage:
+if __name__ == "__main__":
+    np.random.seed(0)
+    n_points = 100
+    dim = 4
+    k = 5
+
+    points = np.random.rand(n_points, dim)
+    weights = np.random.rand(dim)
+
+    top_k = threshold_algorithm(points, weights, k)
+    for idx, score, point in top_k:
+        print(f"Index: {idx}, Score: {score:.4f}, Point: {point}")
