@@ -51,7 +51,7 @@ def fagins_algorithm(points: np.ndarray, weights: np.ndarray, k: int):
     # Step 4: Select Top-k
     topk = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
     # result = [(idx, score, points[idx]) for idx, score in topk]
-    return points[topk[-1][0]], topk[-1][1] 
+    return points[topk[-1][0]], topk[-1][1]
 
 
 # Example Usage:

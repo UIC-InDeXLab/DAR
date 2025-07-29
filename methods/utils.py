@@ -1,5 +1,8 @@
 from ranges.stripe_range import StripeRange
 import numpy as np
+import sys
+from collections.abc import Mapping, Container
+from numbers import Number
 
 
 def linear_search(points: np.ndarray, q: StripeRange):
@@ -21,9 +24,50 @@ def epsilon_sample(points: np.ndarray, size: int):
 
 
 def find_kth_exhaustive(points: np.ndarray, weights, k: int):
+    scores_with_points = []
+
+    for point in points:
+        # Compute dot product manually
+        score = sum(p * w for p, w in zip(point, weights))
+        scores_with_points.append((score, point))
+
+    # Sort by score in descending order
+    scores_with_points.sort(reverse=True, key=lambda x: x[0])
+
+    # Get the k-th (1-based) point
+    score, point = scores_with_points[k - 1]
+    return point, score
+
+
+def get_size_recursive(obj, seen=None):
     """
-    Find the k-th point in the points based on the dot product scoring with weights.
+    Recursively calculate the size of a Python object in bytes.
+
+    Args:
+        obj: The object to measure
+        seen: Set of already seen object IDs to avoid infinite recursion
+
+    Returns:
+        int: Size in bytes
     """
-    scores = np.dot(points, weights)
-    sorted_indices = np.argsort(-scores)
-    return points[sorted_indices[k - 1]], scores[sorted_indices[k - 1]]
+    size = sys.getsizeof(obj)
+
+    if seen is None:
+        seen = set()
+
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+
+    # Mark this object as seen
+    seen.add(obj_id)
+
+    if isinstance(obj, dict):
+        size += sum([get_size_recursive(v, seen) for v in obj.values()])
+        size += sum([get_size_recursive(k, seen) for k in obj.keys()])
+    elif hasattr(obj, "__dict__"):
+        size += get_size_recursive(obj.__dict__, seen)
+    elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size_recursive(i, seen) for i in obj])
+
+    return size

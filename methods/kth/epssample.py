@@ -13,7 +13,6 @@ def compute_sample_size(d, epsilon, delta=0.1, constant=1 / 1024):
 def epsilon_sample(points: np.ndarray, epsilon: float, delta: float = 0.1):
     n, d = points.shape
     sample_size = compute_sample_size(d, epsilon, delta)
-    print("sample_size:", sample_size, "n:", n)
     sample_size = min(sample_size, n)  # Can't sample more than population
     indices = np.random.choice(n, size=sample_size, replace=False)
     return points[indices]

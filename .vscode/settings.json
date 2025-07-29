@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/home/mohsen/range_searching/baselines"
+    "cmake.sourceDirectory": "/home/mohsen/range_searching/baselines",
+    "cmake.ignoreCMakeListsMissing": true
 }

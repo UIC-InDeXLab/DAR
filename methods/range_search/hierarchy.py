@@ -2,7 +2,10 @@ import numpy as np
 import math
 from ranges.stripe_range import StripeRange
 from scipy.spatial import cKDTree
+from scipy.spatial.distance import pdist, squareform
 import miniball
+from tqdm import tqdm
+import gc
 
 
 class HierarchicalIndex:
@@ -30,7 +33,7 @@ class HierarchicalIndex:
         layer_idx = 0
 
         while len(current_layer) >= self.decay:
-            # print("Building layer", layer_idx)
+            print("Building layer", layer_idx)
             next_layer_size = len(current_layer) // self.decay
             next_layer = current_layer[
                 np.random.choice(len(current_layer), next_layer_size, replace=False)
@@ -40,12 +43,13 @@ class HierarchicalIndex:
             self.edges[layer_idx + 1] = {point: [point] for point in next_layer}
 
             # Build graph connections
+            print("Building cKDTree...")
             tree = cKDTree(self.points[next_layer])
 
-            for point_index in current_layer:
+            for point_index in tqdm(current_layer):
                 point = self.points[point_index]
                 _, idx = tree.query(
-                    point, k=1
+                    point, k=1, workers=-1
                 )  # Find the closest centroid in next_layer
                 idx = next_layer[idx]
                 self.edges[layer_idx + 1][idx].append(
@@ -56,8 +60,9 @@ class HierarchicalIndex:
             layer_idx += 1
 
     def find_coverage(self):
+        print("Finding coverage...")
         self.coverage[0] = {point: set([point]) for point in self.layers[0]}
-        for layer in range(1, self.L):
+        for layer in tqdm(range(1, self.L)):
             for point, neighbors in self.edges[layer].items():
                 point_coverage = set()
                 for neighbor in neighbors:
@@ -70,26 +75,43 @@ class HierarchicalIndex:
     """
 
     def find_neighbor_stats(self):
+        print("Finding neighbor stats...")
         for layer in range(self.L):
-            for point, coverage in self.coverage[layer].items():
+            for point, coverage in tqdm(
+                self.coverage[layer].items(), desc=f"Layer {layer}"
+            ):
                 # Compute the smallest circle enclosing all points
-                points = self.points[list(coverage)]
+                points = self.points[list(coverage)].astype(np.float32)
+
+                if (
+                    len(points) > 10000
+                ):  # for memory constraints, down sample points to find approximate bounding circle
+                    points = points[
+                        np.random.choice(points.shape[0], size=10000, replace=False)
+                    ]
+
                 # center = np.mean(points, axis=0)
                 if len(points) == 0:
                     self.stats[layer][point] = {
                         "center": center,
                         "max_radius": 0,
                     }
-                try:
-                    center, radius_squared = miniball.get_bounding_ball(points)
-                except np.linalg.LinAlgError:
-                    # fallback: bounding circle of two furthest points
-                    from scipy.spatial.distance import pdist, squareform
+                    continue
+                if len(points) == 1:
+                    self.stats[layer][point] = {
+                        "center": points[0],
+                        "max_radius": 0,
+                    }
+                    continue
 
-                    D = squareform(pdist(points))
-                    i, j = np.unravel_index(np.argmax(D), D.shape)
-                    center = (points[i] + points[j]) / 2
-                    radius_squared = np.linalg.norm(points[i] - center) ** 2
+                # try:
+                # center, radius_squared = miniball.get_bounding_ball(points) # TODO: uncomment for exact bounding circle
+                # except np.linalg.LinAlgError:
+                # fallback: bounding circle of two furthest points
+                D = squareform(pdist(points))
+                i, j = np.unravel_index(np.argmax(D), D.shape)
+                center = (points[i] + points[j]) / 2
+                radius_squared = np.linalg.norm(points[i] - center) ** 2
 
                 # max_distance = np.max(np.linalg.norm(points - center, axis=1))
                 self.stats[layer][point] = {
