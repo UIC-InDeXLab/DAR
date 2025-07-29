@@ -134,3 +134,4 @@ cython_debug/
 
 *.ipynb
 experiments/assets/*
+examples/assets/*
