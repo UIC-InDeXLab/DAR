@@ -1,4 +1,5 @@
 {
     "cmake.sourceDirectory": "/home/mohsen/range_searching/baselines",
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "python-envs.pythonProjects": []
 }

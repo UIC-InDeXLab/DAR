@@ -54,6 +54,6 @@ def preprocess(points, index_fn, eps=0.1):
     return (index, eps_sample, eps, n)
 
 
-def find_kth(index, eps_sample, eps, n, weights, k):
+def find_kth(index, eps_sample, eps, n, weights, k, query_fn=query):
     stripe = find_stripe(eps_sample, eps, weights, k, n)
-    return query(index, stripe)
+    return query_fn(index, stripe)
