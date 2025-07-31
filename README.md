@@ -11,3 +11,4 @@
     * Baseline `Partition Tree`
     * Baseline `KD-tree`
     * Baseline `R-tree`
+* `experiments` contains example codes for using these algorithms.
