@@ -2,6 +2,7 @@ import numpy as np
 from typing import List, Tuple, Optional, Union
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from tqdm import tqdm
 from ranges.stripe_range import StripeRange
 
 
@@ -47,7 +48,18 @@ class MBR:
         extents = self.max_coords - self.min_coords
         # Avoid zero area for point MBRs by using small epsilon
         extents = np.maximum(extents, 1e-10)
-        return np.prod(extents)
+        
+        # Use log-space calculation to avoid overflow in high dimensions
+        try:
+            log_extents = np.log(extents)
+            log_area = np.sum(log_extents)
+            
+            # Return exp if the log area is reasonable, otherwise return a large value
+            if log_area > 700:  # exp(700) is close to float64 limit
+                return float('inf')
+            return np.exp(log_area)
+        except (OverflowError, RuntimeWarning):
+            return float('inf')
 
     def union(self, other: "MBR") -> "MBR":
         """Create union of two MBRs"""
@@ -96,6 +108,11 @@ class RTreeNode:
 
     def add_entry(self, mbr: MBR, data_or_child):
         """Add an entry to this node"""
+        if mbr is None:
+            raise ValueError("Cannot add entry with None MBR")
+        if not self.is_leaf and data_or_child is None:
+            raise ValueError("Cannot add None child to internal node")
+            
         self.entries.append((mbr, data_or_child))
         if not self.is_leaf:
             data_or_child.parent = self
@@ -122,8 +139,30 @@ class RTree:
             is_leaf=True, max_entries=max_entries, dimensions=dimensions
         )
         self.size = 0
+        self.split_count = 0  # Track number of node splits
 
-    def insert_points(self, points: np.ndarray):
+    def validate_tree(self):
+        """Validate the tree structure"""
+        def _validate_node(node: RTreeNode, level: int):
+            if node is None:
+                raise RuntimeError(f"Found None node at level {level}")
+                
+            # Check that non-leaf nodes have children
+            if not node.is_leaf and not node.entries:
+                raise RuntimeError(f"Internal node has no entries at level {level}")
+                
+            # Check that all children are not None
+            for mbr, child in node.entries:
+                if mbr is None:
+                    raise RuntimeError(f"Found None MBR at level {level}")
+                if not node.is_leaf and child is None:
+                    raise RuntimeError(f"Found None child at level {level}")
+                if not node.is_leaf:
+                    _validate_node(child, level + 1)
+        
+        _validate_node(self.root, 0)
+
+    def insert_points(self, points: np.ndarray, show_progress: bool = True):
         """Insert multiple points into the R-tree"""
         points = np.array(points)
         if points.ndim == 1:
@@ -133,7 +172,16 @@ class RTree:
         if points.shape[1] != self.dimensions:
             raise ValueError(f"Points must have {self.dimensions} dimensions")
 
-        for i, point in enumerate(points):
+        # Use tqdm for progress tracking
+        n_points = len(points)
+        desc = f"Inserting {n_points} points into {self.dimensions}D RTree"
+        
+        if show_progress and n_points > 100:  # Only show progress bar for larger datasets
+            point_iterator = tqdm(enumerate(points), total=n_points, desc=desc, unit="points")
+        else:
+            point_iterator = enumerate(points)
+            
+        for i, point in point_iterator:
             self.insert_point(point, i)  # Use index as data
         self.points = points.copy()
 
@@ -164,34 +212,82 @@ class RTree:
             min_enlargement = float("inf")
             min_area = float("inf")
 
-            for entry_mbr, child in node.entries:
-                enlarged_mbr = entry_mbr.union(mbr)
-                enlargement = enlarged_mbr.area() - entry_mbr.area()
+            # Check if node has entries
+            if not node.entries:
+                raise RuntimeError(f"Internal node has no entries: {node}")
 
-                if enlargement < min_enlargement or (
-                    enlargement == min_enlargement and entry_mbr.area() < min_area
-                ):
+            for entry_mbr, child in node.entries:
+                if child is None:
+                    raise RuntimeError(f"Found None child in node: {node}")
+                    
+                enlarged_mbr = entry_mbr.union(mbr)
+                enlarged_area = enlarged_mbr.area()
+                current_area = entry_mbr.area()
+                
+                # Handle overflow/NaN cases
+                if np.isnan(enlarged_area) or np.isnan(current_area):
+                    enlargement = 0  # Treat as no enlargement
+                elif np.isinf(enlarged_area) and np.isinf(current_area):
+                    enlargement = 0  # Both infinite, no additional enlargement
+                elif np.isinf(enlarged_area):
+                    enlargement = float('inf')
+                else:
+                    enlargement = enlarged_area - current_area
+
+                # Choose the child with minimum enlargement, break ties by minimum area
+                if (enlargement < min_enlargement or 
+                    (enlargement == min_enlargement and current_area < min_area)):
                     min_enlargement = enlargement
-                    min_area = entry_mbr.area()
+                    min_area = current_area
                     best_child = child
 
+            if best_child is None:
+                # Fallback: choose the first available child
+                for entry_mbr, child in node.entries:
+                    if child is not None:
+                        best_child = child
+                        break
+                
+            if best_child is None:
+                raise RuntimeError(f"Could not find best child for node: {node}")
+                
             node = best_child
 
         return node
 
     def _split_node(self, node: RTreeNode):
         """Split an overflowing node using linear split algorithm"""
+        self.split_count += 1
+        
+        # Print split progress for large trees (every 100 splits)
+        # if self.split_count % 100 == 0:
+            # tqdm.write(f"RTree splits: {self.split_count}, tree size: {self.size}")
+            
         entries = node.entries[:]
+        
+        # Validate we have enough entries to split
+        if len(entries) < 2:
+            raise RuntimeError(f"Cannot split node with less than 2 entries: {len(entries)}")
 
         # Find the pair of entries with maximum separation
-        max_separation = -1
+        max_separation = -float('inf')
         seed1_idx = seed2_idx = 0
 
         for i in range(len(entries)):
             for j in range(i + 1, len(entries)):
                 mbr1, mbr2 = entries[i][0], entries[j][0]
                 union_mbr = mbr1.union(mbr2)
-                separation = union_mbr.area() - mbr1.area() - mbr2.area()
+                union_area = union_mbr.area()
+                area1 = mbr1.area()
+                area2 = mbr2.area()
+                
+                # Handle numerical issues in high dimensions
+                if np.isnan(union_area) or np.isnan(area1) or np.isnan(area2):
+                    separation = 0
+                elif np.isinf(union_area) and (np.isinf(area1) or np.isinf(area2)):
+                    separation = 0
+                else:
+                    separation = union_area - area1 - area2
 
                 if separation > max_separation:
                     max_separation = separation
@@ -222,10 +318,27 @@ class RTree:
             mbr1 = node1.get_mbr().union(mbr)
             mbr2 = node2.get_mbr().union(mbr)
 
-            enlargement1 = mbr1.area() - node1.get_mbr().area()
-            enlargement2 = mbr2.area() - node2.get_mbr().area()
+            area1_union = mbr1.area()
+            area2_union = mbr2.area()
+            area1_current = node1.get_mbr().area()
+            area2_current = node2.get_mbr().area()
+            
+            # Handle numerical issues
+            if np.isnan(area1_union) or np.isnan(area1_current):
+                enlargement1 = 0
+            elif np.isinf(area1_union) and np.isinf(area1_current):
+                enlargement1 = 0
+            else:
+                enlargement1 = area1_union - area1_current
+                
+            if np.isnan(area2_union) or np.isnan(area2_current):
+                enlargement2 = 0
+            elif np.isinf(area2_union) and np.isinf(area2_current):
+                enlargement2 = 0
+            else:
+                enlargement2 = area2_union - area2_current
 
-            if enlargement1 < enlargement2:
+            if enlargement1 <= enlargement2:
                 node1.add_entry(mbr, data_or_child)
             else:
                 node2.add_entry(mbr, data_or_child)
@@ -241,9 +354,23 @@ class RTree:
         else:
             # Replace the old node with the two new nodes in parent
             parent = node.parent
-            parent.entries = [
-                (mbr, child) for mbr, child in parent.entries if child != node
-            ]
+            if parent is None:
+                raise RuntimeError("Non-root node has no parent")
+                
+            # Find and remove the old node from parent's entries
+            new_entries = []
+            found_old_node = False
+            for mbr, child in parent.entries:
+                if child == node:
+                    found_old_node = True
+                    # Don't add the old node to new_entries
+                else:
+                    new_entries.append((mbr, child))
+            
+            if not found_old_node:
+                raise RuntimeError("Could not find old node in parent's entries")
+                
+            parent.entries = new_entries
             parent.add_entry(node1.get_mbr(), node1)
             parent.add_entry(node2.get_mbr(), node2)
 

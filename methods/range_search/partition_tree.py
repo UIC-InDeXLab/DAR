@@ -4,6 +4,7 @@ import random
 from typing import List, Tuple, Optional, Callable, Any
 from dataclasses import dataclass
 from enum import Enum
+from tqdm import tqdm
 
 
 @dataclass
@@ -23,10 +24,20 @@ class Point:
         return len(self.coords)
 
     @staticmethod
-    def from_numpy(array: np.ndarray):
-        return [
-            Point(coords=array[i].tolist(), data=None) for i in range(array.shape[0])
-        ]
+    def from_numpy(array: np.ndarray, show_progress: bool = True):
+        """Convert numpy array to list of Point objects with optional progress tracking"""
+        n_points = array.shape[0]
+        
+        if show_progress and n_points > 1000:
+            print(f"Converting {n_points} numpy points to Point objects...")
+            return [
+                Point(coords=array[i].tolist(), data=None) 
+                for i in tqdm(range(n_points), desc="Converting points", unit="points")
+            ]
+        else:
+            return [
+                Point(coords=array[i].tolist(), data=None) for i in range(n_points)
+            ]
 
 
 class SplitType(Enum):
@@ -92,6 +103,7 @@ class PartitionTree:
         leaf_size: int = 10,
         balance_factor: float = 0.5,
         use_linear_splits: bool = True,
+        show_progress: bool = True,
     ):
         """
         Initialize partition tree
@@ -101,17 +113,38 @@ class PartitionTree:
             leaf_size: Maximum points in leaf nodes
             balance_factor: Balance parameter (0.5 = perfectly balanced)
             use_linear_splits: Whether to use linear splits (more flexible)
+            show_progress: Whether to show progress bars during construction
         """
         self.points = points
         self.leaf_size = leaf_size
         self.balance_factor = balance_factor
         self.use_linear_splits = use_linear_splits
+        self.show_progress = show_progress
         self.dimension = points[0].dimension() if points else 0
-
+        
+        # Progress tracking
+        self.nodes_created = 0
+        self.total_points = len(points)
+        self.max_depth = 0
+        
+        if self.show_progress and self.total_points > 100:
+            print(f"Building partition tree for {self.total_points} points in {self.dimension}D...")
+            
         self.root = self._build_tree(points, 0)
+        
+        if self.show_progress and self.total_points > 100:
+            print(f"✓ Partition tree built: {self.nodes_created} nodes, max depth: {self.max_depth}")
 
     def _build_tree(self, points: List[Point], depth: int) -> PartitionTreeNode:
         """Recursively build the partition tree"""
+        self.nodes_created += 1
+        self.max_depth = max(self.max_depth, depth)
+        
+        # Show progress for larger trees
+        if (self.show_progress and self.total_points > 1000 and 
+            self.nodes_created % 1000 == 0):
+            tqdm.write(f"Partition tree progress: {self.nodes_created} nodes created, depth: {depth}")
+        
         node = PartitionTreeNode(points, depth)
 
         # Base case: create leaf node
