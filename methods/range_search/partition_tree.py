@@ -142,7 +142,7 @@ class PartitionTree:
         
         # Show progress for larger trees
         if (self.show_progress and self.total_points > 1000 and 
-            self.nodes_created % 1000 == 0):
+            self.nodes_created % 10 == 0):
             tqdm.write(f"Partition tree progress: {self.nodes_created} nodes created, depth: {depth}")
         
         node = PartitionTreeNode(points, depth)
