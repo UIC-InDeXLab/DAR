@@ -1,14 +1,38 @@
-#  Efficient Direct-Access Ranked Retrieval
-[The Technical Report](/technical_report.pdf)
-## Structure
-* `methods/kth` contains the implementation of the following algorithms:
-    * `EpsRange`
-    * `EpsHier`
-    * `KthLevel`
-    * Baselines `TA` and `Fagin`
-* `methods/range_search` contains the implementation of the following algorithms:
-    * `Hierarchical Sampling`
-    * Baseline `Partition Tree`
-    * Baseline `KD-tree`
-    * Baseline `R-tree`
-* `experiments` contains example codes for using these algorithms.
+# Efficient Direct-Access Ranked Retrieval
+
+This repository contains implementations and experimental code for efficient direct-access ranked retrieval algorithms. For detailed technical information, see the [Technical Report](/technical_report.pdf).
+
+## Repository Structure
+
+### Core Implementations
+
+#### `methods/kth/`
+Contains implementations of k-th element retrieval algorithms:
+- **`EpsRange`** - Epsilon-based range approach
+- **`EpsHier`** - Epsilon-based hierarchical method  
+- **`KthLevel`** - Level-based k-th element algorithm
+- **Baselines:** `TA` (Threshold Algorithm) and `Fagin`
+
+#### `methods/range_search/`
+Contains implementations of range search algorithms:
+- **`Hierarchical Sampling`** - Novel hierarchical sampling approach
+- **Baseline algorithms:** `Partition Tree`, `KD-tree`, `R-tree`
+
+#### `methods/utils.py`
+Utility functions and helper methods used across different algorithms.
+
+### Experimental Code
+
+#### `experiments/`
+Example codes and benchmarks demonstrating algorithm usage:
+- Performance comparisons and analysis
+- Real-world dataset evaluations
+- Memory usage studies
+- Visualization tools
+
+### Supporting Files
+
+#### `ranges/`
+Range-related data structures and utilities:
+- Base range implementations
+- Stripe range operations
