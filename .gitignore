@@ -135,3 +135,8 @@ cython_debug/
 *.ipynb
 experiments/assets/*
 examples/assets/*
+*.zip
+
+# ANN benchmark datasets
+knn/datasets/data/
+knn/artifacts/

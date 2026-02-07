@@ -1,13 +1,13 @@
-# Efficient Direct-Access Ranked Retrieval
+# Random-Access Ranked Retrieval and Similarity Search
 
-This repository contains implementations and experimental code for efficient direct-access ranked retrieval algorithms. For detailed technical information, see the [Technical Report](/technical_report.pdf).
+This repository contains implementations and experimental code for efficient Random-Access Ranked Retrieval (RAR) and Random-Access Similarity Search algorithms (RAS).
 
 ## Repository Structure
 
 ### Core Implementations
 
 #### `methods/kth/`
-Contains implementations of k-th element retrieval algorithms:
+Contains implementations of RAR algorithms:
 - **`EpsRange`** - Epsilon-based range approach
 - **`EpsHier`** - Epsilon-based hierarchical method  
 - **`KthLevel`** - Level-based k-th element algorithm
@@ -18,21 +18,17 @@ Contains implementations of range search algorithms:
 - **`Hierarchical Sampling`** - Novel hierarchical sampling approach
 - **Baseline algorithms:** `Partition Tree`, `KD-tree`, `R-tree`
 
-#### `methods/utils.py`
-Utility functions and helper methods used across different algorithms.
+#### `knn/methods`
+Contains the implementations of RAS problem on Euclidean distance and cosine similarity.
+- **`EpsHier`** - Our algorithm on random-access similarity search
+- **`Faiss`** - Common ANN indexes as baselines for random-access similarity search
 
 ### Experimental Code
 
 #### `experiments/`
-Example codes and benchmarks demonstrating algorithm usage:
-- Performance comparisons and analysis
-- Real-world dataset evaluations
-- Memory usage studies
-- Visualization tools
+Contains code to reproduce results for Random-access Ranked Retrieval experiments.
 
-### Supporting Files
+#### `knn/experiments`
+Contains code to reproduce results for Random-access Similarity search experiments.
 
-#### `ranges/`
-Range-related data structures and utilities:
-- Base range implementations
-- Stripe range operations
+### Cite
