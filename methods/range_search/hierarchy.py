@@ -3,7 +3,7 @@ import math
 from ranges.stripe_range import StripeRange
 from scipy.spatial import cKDTree
 from scipy.spatial.distance import pdist, squareform
-import miniball
+# import miniball  # optional: only needed for the exact bounding-circle path (see find_coverage)
 from tqdm import tqdm
 import gc
 

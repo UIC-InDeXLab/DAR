@@ -1,0 +1,16 @@
+# Core numerical / ML stack
+numpy
+scipy
+scikit-learn
+
+# Approximate nearest neighbor baselines (RAS)
+faiss-cpu
+
+# Data handling and datasets
+pandas
+h5py
+kagglehub
+
+# Plotting and progress bars (experiments)
+matplotlib
+tqdm

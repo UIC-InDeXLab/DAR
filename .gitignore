@@ -140,3 +140,5 @@ examples/assets/*
 # ANN benchmark datasets
 knn/datasets/data/
 knn/artifacts/
+
+.vscode/

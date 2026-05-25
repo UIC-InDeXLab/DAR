@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dar"
+version = "0.1.0"
+description = "Random-Access Ranked Retrieval (RAR) and Random-Access Similarity Search (RAS)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "faiss-cpu",
+    "pandas",
+    "h5py",
+    "kagglehub",
+    "matplotlib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+# Extras used only by specific memory-profiling experiments.
+profiling = ["psutil", "pympler", "miniball"]
+test = ["pytest"]
+
+[tool.setuptools]
+# Importable packages (experiment scripts live in `experiments/` and are run directly).
+packages = ["ranges", "methods", "methods.kth", "methods.range_search", "knn", "knn.methods", "knn.datasets", "knn.experiments"]

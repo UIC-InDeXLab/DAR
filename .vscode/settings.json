@@ -1,7 +1,0 @@
-{
-    "cmake.sourceDirectory": "/home/mohsen/range_searching/baselines",
-    "cmake.ignoreCMakeListsMissing": true,
-    "python-envs.pythonProjects": [],
-    "python-envs.defaultEnvManager": "ms-python.python:conda",
-    "python-envs.defaultPackageManager": "ms-python.python:conda"
-}
